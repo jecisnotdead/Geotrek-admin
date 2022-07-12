@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.contrib.admin.models import LogEntry, CHANGE
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.gis.db.models import Extent, GeometryField
 from django.core.exceptions import PermissionDenied
@@ -27,7 +28,7 @@ from django.utils.encoding import force_str
 from django.utils.translation import gettext as _
 from django.views import static
 from django.views.decorators.http import require_POST, require_http_methods
-from django.views.generic import RedirectView, View
+from django.views.generic import RedirectView, View, FormView
 from django.views.generic import TemplateView
 from django_celery_results.models import TaskResult
 from mapentity import views as mapentity_views
@@ -327,17 +328,12 @@ def last_list(request):
     return redirect('trekking:trek_list')
 
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def sync_view(request):
-    """
-    Custom views to view / track / launch a sync rando
-    """
+class SyncRandoView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+    form_class = SyncRandoForm
+    template_name = 'common/sync_rando.html'
 
-    return render(request,
-                  'common/sync_rando.html',
-                  {'form': SyncRandoForm(), },
-                  )
+    def test_func(self):
+        return self.request.user.is_superuser
 
 
 @login_required
