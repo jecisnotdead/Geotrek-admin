@@ -3,6 +3,7 @@ from mapentity.registry import MapEntityOptions
 
 from . import views
 
+
 class LangConverter(converters.StringConverter):
     regex = '[a-z]{2}'
 
@@ -25,7 +26,7 @@ urlpatterns = [
 class PublishableEntityOptions(MapEntityOptions):
     document_public_view = views.DocumentPublic
     document_public_booklet_view = views.DocumentBookletPublic
-    markup_public_view =views.MarkupPublic
+    markup_public_view = views.MarkupPublic
 
     def scan_views(self, *args, **kwargs):
         """ Adds the URLs of all views provided by ``PublishableMixin`` models.
