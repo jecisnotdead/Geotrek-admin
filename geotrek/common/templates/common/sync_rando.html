@@ -89,10 +89,10 @@
 
             window.setInterval(function () {
                 get_sync_infos();
-            }, 500);
+            }, 1000);
         });
     </script>
-    <link rel="stylesheet" href="{% static 'trekking/css/sync_trek.css' %}"/>
+    <link rel="stylesheet" href="{% static 'common/css/sync.css' %}"/>
 {% endblock extrahead %}
 
 {% block toolbar %}
@@ -122,7 +122,6 @@
 
     <div class="modal fade" id="confirm-submit" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
          aria-hidden="true">
-        <!-- boostrap 2 modal confirmation -->
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
