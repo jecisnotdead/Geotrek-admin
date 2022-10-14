@@ -21,7 +21,7 @@ from django.db.models import Q
 from django.db.models.functions import Cast
 from django.http import JsonResponse, Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render, redirect
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone, translation
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_str
@@ -328,12 +328,20 @@ def last_list(request):
     return redirect('trekking:trek_list')
 
 
-class SyncRandoView(LoginRequiredMixin, UserPassesTestMixin, FormView):
+class SyncRandoFormView(LoginRequiredMixin, UserPassesTestMixin, FormView):
     form_class = SyncRandoForm
     template_name = 'common/sync_rando.html'
+    success_url = reverse_lazy('common:sync_randos_view')
 
     def test_func(self):
+        """ Only superuser can use this view """
         return self.request.user.is_superuser
+
+    def form_valid(self, form):
+        url = "{scheme}://{host}".format(scheme='https' if self.request.is_secure() else 'http',
+                                         host=self.request.get_host())
+        launch_sync_rando.delay(url=url)
+        return super().form_valid(form)
 
 
 @login_required
@@ -382,12 +390,14 @@ def sync_update_json(request):
                         content_type="application/json")
 
 
-class SyncRandoRedirect(RedirectView):
+class SyncRandoRedirect(LoginRequiredMixin, UserPassesTestMixin, RedirectView):
     http_method_names = ['post']
     pattern_name = 'common:sync_randos_view'
 
-    @method_decorator(login_required)
-    @method_decorator(user_passes_test(lambda u: u.is_superuser))
+    def test_func(self):
+        """ Only superuser can use this view """
+        return self.request.user.is_superuser
+
     def post(self, request, *args, **kwargs):
         url = "{scheme}://{host}".format(scheme='https' if self.request.is_secure() else 'http',
                                          host=self.request.get_host())

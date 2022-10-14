@@ -17,7 +17,7 @@ urlpatterns = [
     path('commands/import-update.json', import_update_json, name='import_update_json'),
     path('commands/import', views.import_view, name='import_dataset'),
     path('commands/sync', views.SyncRandoRedirect.as_view(), name='sync_randos'),
-    path('commands/syncview', views.SyncRandoView.as_view(), name='sync_randos_view'),
+    path('commands/syncview', views.SyncRandoFormView.as_view(), name='sync_randos_view'),
     path('commands/statesync/', views.sync_update_json, name='sync_randos_state'),
     path('api/<lang:lang>/themes.json', views.ThemeViewSet.as_view({'get': 'list'}), name="themes_json"),
 ]
