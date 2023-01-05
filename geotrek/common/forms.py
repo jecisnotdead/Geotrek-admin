@@ -4,13 +4,11 @@ from django import forms
 from django.conf import settings
 from django.core.checks.messages import Error
 from django.core.files.images import get_image_dimensions
-from django.db.models import Q
 from django.db.models.query import QuerySet
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.forms.widgets import HiddenInput
 from django.urls import reverse
-from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from mapentity.forms import MapEntityForm
@@ -18,9 +16,9 @@ from mapentity.forms import MapEntityForm
 from geotrek.authent.models import default_structure, StructureRelated, StructureOrNoneRelated
 from geotrek.common.models import AccessibilityAttachment
 from geotrek.common.mixins.models import PublishableMixin
+from geotrek.common.mixins.forms import WithStructureFormMixin
 from geotrek.common.utils.translation import get_translated_fields
 
-from .mixins.models import NoDeleteMixin
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Div, Submit, Button
@@ -31,7 +29,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class CommonForm(MapEntityForm):
+class CommonForm(WithStructureFormMixin, MapEntityForm):
 
     not_hideable_fields = []
 
@@ -64,18 +62,8 @@ class CommonForm(MapEntityForm):
         'ReportForm': 'report',
     }
 
-    def deep_remove(self, fieldslayout, name):
-        if isinstance(fieldslayout, list):
-            for field in fieldslayout:
-                self.deep_remove(field, name)
-        elif hasattr(fieldslayout, 'fields'):
-            if name in fieldslayout.fields:
-                fieldslayout.fields.remove(name)
-                self.fields.pop(name)
-            for field in fieldslayout.fields:
-                self.deep_remove(field, name)
-
     def replace_orig_fields(self):
+        """Replace original fields by translated ones when are translatable"""
         model = self._meta.model
         codeperm = '%s.publish_%s' % (
             model._meta.app_label, model._meta.model_name)
@@ -84,25 +72,6 @@ class CommonForm(MapEntityForm):
         if 'review' in self.fields and self.instance and self.instance.any_published:
             self.deep_remove(self.fieldslayout, 'review')
         super().replace_orig_fields()
-
-    def filter_related_field(self, name, field):
-        if not isinstance(field, forms.models.ModelChoiceField):
-            return
-        try:
-            modelfield = self.instance._meta.get_field(name)
-        except FieldDoesNotExist:
-            # be careful but custom form fields, not in model
-            modelfield = None
-        if not isinstance(modelfield, (ForeignKey, ManyToManyField)):
-            return
-        model = modelfield.remote_field.model
-        # Filter structured choice fields according to user's structure
-        if issubclass(model, StructureRelated) and model.check_structure_in_forms:
-            field.queryset = field.queryset.filter(structure=self.user.profile.structure)
-        if issubclass(model, StructureOrNoneRelated) and model.check_structure_in_forms:
-            field.queryset = field.queryset.filter(Q(structure=self.user.profile.structure) | Q(structure=None))
-        if issubclass(model, NoDeleteMixin):
-            field.queryset = field.queryset.filter(deleted=False)
 
     def __init__(self, *args, **kwargs):
 
@@ -117,13 +86,7 @@ class CommonForm(MapEntityForm):
         self.fields = self.fields.copy()
         self.update = kwargs.get("instance") is not None
         if 'structure' in self.fields:
-            if self.user.has_perm('authent.can_bypass_structure'):
-                if not self.instance.pk:
-                    self.fields['structure'].initial = self.user.profile.structure
-            else:
-                for name, field in self.fields.items():
-                    self.filter_related_field(name, field)
-                del self.fields['structure']
+            self.initialize_fields_with_structure()
 
         # For each field listed in 'to hide' list for this Form
         for field_to_hide in self.hidden_fields:
@@ -187,12 +150,6 @@ class CommonForm(MapEntityForm):
                 )
 
         return self.cleaned_data
-
-    def check_structure(self, obj, structure, name):
-        if hasattr(obj, 'structure'):
-            if obj.structure and structure != obj.structure:
-                self.add_error(name, format_lazy(_("Please select a choice related to all structures (without brackets) "
-                                                   "or related to the structure {struc} (in brackets)"), struc=structure))
 
     @property
     def any_published(self):
