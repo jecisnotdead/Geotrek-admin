@@ -69,6 +69,7 @@ In preparation for HD Views developments (PR #3298)
 
 - Apidae trek parser supports geometry import from kml or kmz attachment
 - More checks on Apidae trek parser in order not to import trek without a geometry
+- Add arguments loadsignage : sealing / manager (#3377)
 
 **Bug fixes**
 
