@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.gis.db.models.functions import Transform
 from django.db.models import F, Prefetch, Q
 from django.db.models.aggregates import Count
+from django.forms.fields import IntegerField
 from django.utils.translation import activate
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
@@ -12,7 +13,14 @@ from geotrek.api.v2.decorators import cache_response_detail
 from geotrek.api.v2.functions import Length3D
 from geotrek.api.v2.renderers import SVGProfileRenderer
 from geotrek.common.models import Attachment, AccessibilityAttachment
+from geotrek.common.utils import intersecting
+from geotrek.core.models import Topology
 from geotrek.trekking import models as trekking_models
+from geotrek.api.v2.cache import ListCacheResponseMixin
+from hashlib import md5
+from django_filters import rest_framework as filters  # noqa
+from django_filters import Filter  # noqa
+from geotrek.trekking.models import Trek
 
 
 class WebLinkCategoryViewSet(api_viewsets.GeotrekViewSet):
@@ -157,13 +165,53 @@ class DifficultyViewSet(api_viewsets.GeotrekViewSet):
         return Response(serializer.data)
 
 
-class POIViewSet(api_viewsets.GeotrekGeometricViewset):
+# Une classe qui sert juste de signal pour les filtres où il faut vérifier la datetime de dernier
+# changement dans la table stats pour le cache des list endpoints.
+class LinkedObjectFilter(Filter):
+    model = None
+
+
+class NearTrekFilter(LinkedObjectFilter):
+
+    model = Trek
+    field_class = IntegerField
+
+    def filter(self, qs, value):
+        # Le traitement du filtre 'trek' précédemment dans le POI FilterBackend
+        trek = value
+        if trek is not None:
+            try:
+                t = Trek.objects.get(pk=trek)
+            except Trek.DoesNotExist:
+                return qs.none()
+            if settings.TREKKING_TOPOLOGY_ENABLED:
+                qs = Topology.overlapping(t, qs)
+            else:
+                qs = intersecting(qs, t)
+            qs = qs.exclude(pk__in=t.pois_excluded.all())
+
+        return qs
+
+
+# Ce qui pourrait remplacer le POI FilterBackend à terme
+class POIFilterSet(filters.FilterSet):
+
+    # Du coup fini les 500 si la valeur de 'trek' n'est pas un ID
+    trek = NearTrekFilter(min_value=1)
+
+
+# dummy value pour tester en attendant la table stats
+LAST_CHANGE = '2022-01-27T16:10:00+00:01'
+
+
+class POIViewSet(ListCacheResponseMixin, api_viewsets.GeotrekGeometricViewset):
     filter_backends = api_viewsets.GeotrekGeometricViewset.filter_backends + (
         api_filters.GeotrekPOIFilter,
         api_filters.NearbyContentFilter,
         api_filters.UpdateOrCreateDateFilter
     )
     serializer_class = api_serializers.POISerializer
+    filterset_class = POIFilterSet
     queryset = trekking_models.POI.objects.existing() \
         .select_related('topo_object', 'type', ) \
         .prefetch_related('topo_object__aggregations',
@@ -171,6 +219,34 @@ class POIViewSet(api_viewsets.GeotrekGeometricViewset):
                                    queryset=Attachment.objects.select_related('license', 'filetype', 'filetype__structure'))) \
         .annotate(geom3d_transformed=Transform(F('geom_3d'), settings.API_SRID)) \
         .order_by('pk')  # Required for reliable pagination
+
+    @staticmethod
+    def get_last_change_datetime(*args, **kwargs):
+        # TODO: fetch last change datetime from the stats table, handle a model as param
+        return LAST_CHANGE
+
+    def get_related_entities_cache_key(self):
+        last_changes = []
+        for field, filter_klass in self.filterset_class.get_filters().items():
+            if isinstance(filter_klass, LinkedObjectFilter):
+                last_change_dt = self.get_last_change_datetime(filter_klass.model)
+                last_changes.append(field + "-" + last_change_dt)
+        last_changes.sort()
+        return ":".join(last_changes)
+
+    def get_list_cache_key(self):
+        """ return specific list cache key based on list last_update object """
+        last_update = self.get_queryset().model.last_update_and_count.get('last_update')
+        last_update = last_update.isoformat() if last_update else '0000-00-00'
+
+        related_last_updates = self.get_related_entities_cache_key()
+
+        return f"{self.get_base_cache_string()}:{last_update}:{related_last_updates}"
+
+    def list_cache_key_func(self, **kwargs):
+        list_cache_key = self.get_list_cache_key()
+        print("list_cache_key", list_cache_key)
+        return md5(list_cache_key.encode("utf-8")).hexdigest()
 
 
 class POITypeViewSet(api_viewsets.GeotrekViewSet):
