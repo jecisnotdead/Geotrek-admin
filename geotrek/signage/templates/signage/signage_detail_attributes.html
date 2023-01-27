@@ -105,7 +105,14 @@
                                 </tr><tr {% if not forloop.last %}class="dashed-line"{% endif %}><td></td><td></td><td></td><td></td>
                             {% endif %}
                             <td>{{ line.text }}</td>
-                            <td>{{ line.pictogram_name|default_if_none:"" }}</td>
+                            <td>
+                                {% for pictogram in line.pictograms.all %}
+                                    {{ pictogram.label|default_if_none:"" }}
+                                    {{ pictogram.code|default_if_none:"" }}
+                                    {{ pictogram.description|default_if_none:"" }}
+                                    <br>
+                                {% endfor %}
+                            </td>
                             <td>{{ line.distance_pretty|default_if_none:"" }}</td>
                             <td>{{ line.time_pretty|default_if_none:"" }}</td>
                         {% empty %}
@@ -122,7 +129,14 @@
                             {% endif %}
                             <td>{{ line.direction|default_if_none:"" }}</td>
                             <td>{{ line.text }}</td>
-                            <td>{{ line.pictogram_name|default_if_none:"" }}</td>
+                            <td>
+                                {% for pictogram in line.pictograms.all %}
+                                    {{ pictogram.label|default_if_none:"" }}
+                                    {{ pictogram.code|default_if_none:"" }}
+                                    {{ pictogram.description|default_if_none:"" }}
+                                    <br>
+                                {% endfor %}
+                            </td>
                             <td>{{ line.distance_pretty|default_if_none:"" }}</td>
                             <td>{{ line.time_pretty|default_if_none:"" }}</td>
                         {% empty %}

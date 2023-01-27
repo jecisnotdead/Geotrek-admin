@@ -42,6 +42,29 @@
                 deleteCssClass: 'delete-row',
                 addText: '{% trans "Add a line" %}',
                 deleteText: '{% trans "Remove" %}',
+                added: function (row) {
+                    var prefix = '{{ line_formset.prefix }}';
+                    var totalForms = $('#id_' + prefix + '-TOTAL_FORMS');
+                    var formCount = parseInt(totalForms.val()) - 1 ;
+                    row.find('input,select,textarea,label,div').each(function () {
+                        var idRegex = new RegExp(prefix + '_(\\d+|__prefix__)_'),
+                            replacement = prefix + '-' + formCount + '-';
+                        if ($(this).attr("for")) $(this).attr("for", $(this).attr("for").replace(idRegex, replacement));
+                        if ($(this).attr('id')) $(this).attr('id', $(this).attr('id').replace(idRegex, replacement));
+                        if ($(this).attr('name')) $(this).attr('name', $(this).attr('name').replace(idRegex, replacement));
+                    });
+                    row.find('select.selectmultiple').each(function () {
+                        var select_id = $(this).attr('id');
+                        $('#' + select_id + '_chosen').remove();
+                        var new_select = $(this).clone(false);
+                        $(this).after(new_select);
+                        $(this).remove()
+                        new_select.chosen({
+                         no_results_text: "{% trans "No result" %}",
+                         placeholder_text_multiple: "{% trans "Choose value(s)" %}"
+                    });
+                    })
+                }
             });
         });
     </script>
