@@ -12,10 +12,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='line',
-            name='pictogram_name',
-        ),
         migrations.CreateModel(
             name='LinePictogram',
             fields=[
