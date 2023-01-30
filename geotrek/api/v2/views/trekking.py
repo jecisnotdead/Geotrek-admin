@@ -197,7 +197,14 @@ class NearTrekFilter(LinkedObjectFilter):
 class POIFilterSet(filters.FilterSet):
 
     # Du coup fini les 500 si la valeur de 'trek' n'est pas un ID
-    trek = NearTrekFilter(min_value=1)
+    trek = NearTrekFilter(
+        label="trek_id", min_value=1,
+        help_text="Filter by a trek id. It will show only the POIs related to this trek."
+    )
+    # Transfert des descriptions des filtres de l'API :
+    # `help_text` param est utilisé par `DjangoFilterBackend.get_schema_fields`,
+    # on laisserait tomber la localisation du nom du filtre -> n'a pas de sens et pas traduit,
+    # on peut utiliser `label` pour le placeholder (`DjangoFilterBackend.get_schema_fields` toujours).
 
 
 # dummy value pour tester en attendant la table stats
