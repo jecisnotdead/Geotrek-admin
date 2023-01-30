@@ -862,7 +862,8 @@ PAPERCLIP_ALLOWED_EXTENSIONS = [
 PAPERCLIP_EXTRA_ALLOWED_MIMETYPES = {
     'bmp': ['image/bmp'],
     'gpx': ['text/xml'],
-    'webp': ['image/webp']
+    'webp': ['image/webp'],
+    'svg': ['image/svg']
 }
 
 # Override with prod/dev/tests/tests_nds settings
